@@ -1,0 +1,68 @@
+<?php 
+	if (! $is_weixin) { 
+        $wxlogin = kv_get('skiy_wx_login');
+?>
+<div id="qrcode" class="qrcode"></div>
+<link rel="stylesheet" href="/plugin/skiy_wx_login/static/css/sweetalert2.min.css">
+<script type="text/javascript" src="/plugin/skiy_wx_login/static/js/jquery.qrcode.min.js"></script>
+<script>
+    $(function (){
+        let qrcode_obj = $('#qrcode');
+        let site_url = '<?php echo http_url_path(); ?>';
+
+        //添加二维码
+        $("#weixin-qrcode").on("click", function(){
+            makeQrcode();
+        });
+
+        //定时器检测是否扫描
+        function scanQrcodeCheck() {
+            let qrcode_scan_url = 'wx_login-scan-get.htm';
+
+            //定时器
+            let getScanStatus = setInterval(() => {
+                $.xget(qrcode_scan_url, function(code, message) {
+                    console.log(code, message);
+                    //登录成功转跳
+                    if (code == 0) {
+                        console.log('登录成功');
+                        clearInterval(getScanStatus);
+                        window.location.href = site_url;
+                    //二维码无效，停止计时(可增加刷新状态)    
+                    } else if (code == -1) {
+                        console.log('二维码已失效');
+                        clearInterval(getScanStatus);
+                        //刷新二维码
+                        // makeQrcode(message.qrcode);
+                    //未扫码    
+                    } else if (code == 1) {
+                        console.log('未扫码');
+                    }
+                });
+            }, 1500);
+        }
+
+        //创建二维码
+        //参数带旧二维码,刷新时会删除旧二维码在cache的数据
+        function makeQrcode(code_number = '') {
+            let qrcode_create_url = 'wx_login-scan-create.htm';
+            
+            if (code_number != '') {
+                qrcode_create_url = 'wx_login-scan-create-' + code_number + '.htm';
+            }
+
+            $.xget(qrcode_create_url, function(code, message) {
+                if (code == 0) {
+                    qrcode_url = site_url + 'wx_login-scan-key-' + message.qrcode + '.htm';
+
+                    qrcode_obj.html('');
+                    qrcode_obj.qrcode(qrcode_url);
+
+                    //定时检测二维码登录状态
+                    scanQrcodeCheck();
+                }
+            });
+        }
+	});
+</script>
+<?php } ?>
