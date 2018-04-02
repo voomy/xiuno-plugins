@@ -8,6 +8,12 @@ Xiuno BBS 4.x 插件
 插件地址：http://plugin.xiuno.com/plugin-read-skiy_wx_login.htm      
 插件说明：http://bbs.xiuno.com/thread-21280.htm
 
+- v1.2.0    
+> 增加扫码绑定帐号的功能   
+
+- v1.1.0   
+> 增加扫码登录的功能   
+
 ### 付费阅读
 
 ## 作者
