@@ -1,18 +1,50 @@
 <?php 
-	if (! $is_weixin) { 
+
+    //是否为登录页,防止每个页面都加载
+    $is_login_page = ((param(0) == 'user') && (param(1) == 'login'));
+    //是否为个人资料页
+    $is_my_page = (param(0) == 'my') && (param(1) === '');
+    $is_wx_login_page = ($is_my_page || $is_login_page);
+
+    //如果不是微信，且为登录页或个人中心页
+	if (empty($is_weixin) && ($is_wx_login_page === true)) { 
         $wxlogin = kv_get('skiy_wx_login');
 ?>
-<div id="qrcode" class="qrcode"></div>
-<link rel="stylesheet" href="/plugin/skiy_wx_login/static/css/sweetalert2.min.css">
+<div class="qrcode-container" style="display: none;">
+    <div class="qrcode-title"></div>
+    <div id="qrcode" class="qrcode"></div>
+</div>
+<div class="shade" style="display: none;"></div>
+<link rel="stylesheet" href="/plugin/skiy_wx_login/static/css/common.css">
 <script type="text/javascript" src="/plugin/skiy_wx_login/static/js/jquery.qrcode.min.js"></script>
 <script>
     $(function (){
         let qrcode_obj = $('#qrcode');
         let site_url = '<?php echo http_url_path(); ?>';
+        let getScanStatus;
 
         //添加二维码
         $("#weixin-qrcode").on("click", function(){
+            $('.qrcode-title').html('微信扫码登录');
             makeQrcode();
+        });
+
+        $('#bind-weixin').on("click", function(){
+            $('.qrcode-title').html('微信扫码绑定');
+            makeBindQrcode();
+        });
+
+        //点击遮罩层取消微信登录
+        $('.shade').on('click', function(){
+            $('.qrcode-container').hide();
+            $('.shade').hide();
+            clearInterval(getScanStatus);
+        });
+
+        //刷新二维码
+        $('.qrcode').on('click', '.obsolete', function(){
+            let code = $('.obsolete').data('code');
+            makeQrcode(code);
         });
 
         //定时器检测是否扫描
@@ -20,29 +52,48 @@
             let qrcode_scan_url = 'wx_login-scan-get.htm';
 
             //定时器
-            let getScanStatus = setInterval(() => {
+            getScanStatus = setInterval(() => {
                 $.xget(qrcode_scan_url, function(code, message) {
-                    console.log(code, message);
                     //登录成功转跳
                     if (code == 0) {
-                        console.log('登录成功');
                         clearInterval(getScanStatus);
                         window.location.href = site_url;
                     //二维码无效，停止计时(可增加刷新状态)    
                     } else if (code == -1) {
-                        console.log('二维码已失效');
                         clearInterval(getScanStatus);
+
+                        let qrcode_html = `<div class="obsolete" data-code="${message.qrcode}">二维码已失效，点此刷新</a>`;
+                        qrcode_obj.html(qrcode_html);
                         //刷新二维码
                         // makeQrcode(message.qrcode);
                     //未扫码    
                     } else if (code == 1) {
-                        console.log('未扫码');
                     }
                 });
             }, 1500);
         }
 
-        //创建二维码
+        //创建绑定微信二维码
+        function makeBindQrcode() {
+            let qrcode_create_url = 'wx_login-bind-create_qrcode.htm';
+
+            $.xget(qrcode_create_url, function(code, message) {
+                if (code == 0) {
+                    qrcode_url = site_url + 'wx_login-bind-scan_qrcode-' + message.qrcode + '.htm';
+
+                    qrcode_obj.html('').qrcode({
+                        width: 180,
+                        height: 180,
+                        text: qrcode_url
+                    });
+
+                    $('.qrcode-container').show();
+                    $('.shade').show();
+                } 
+            });
+        }
+
+        //创建登录二维码
         //参数带旧二维码,刷新时会删除旧二维码在cache的数据
         function makeQrcode(code_number = '') {
             let qrcode_create_url = 'wx_login-scan-create.htm';
@@ -55,8 +106,14 @@
                 if (code == 0) {
                     qrcode_url = site_url + 'wx_login-scan-key-' + message.qrcode + '.htm';
 
-                    qrcode_obj.html('');
-                    qrcode_obj.qrcode(qrcode_url);
+                    qrcode_obj.html('').qrcode({
+                        width: 180,
+                        height: 180,
+                        text: qrcode_url
+                    });
+
+                    $('.qrcode-container').show();
+                    $('.shade').show();
 
                     //定时检测二维码登录状态
                     scanQrcodeCheck();

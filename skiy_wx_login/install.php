@@ -24,6 +24,7 @@ if (empty($kv)) {
 	$kv = array(
         'app_id' => '', 
         'app_secret' => '',
+        'qrcode_expiry' => 120,
     );
 	kv_set('skiy_wx_login', $kv);
 }

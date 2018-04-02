@@ -2,6 +2,8 @@
 
 /**
  * 卸载微信登录
+ * Skiychan <dev@skiy.net>
+ * https://www.skiy.net/201804025057.html
  */
 
 !defined('DEBUG') AND exit('Forbidden');
