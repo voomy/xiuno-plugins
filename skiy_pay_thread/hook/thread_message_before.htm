@@ -1,0 +1,30 @@
+<?php 
+
+$thread_open = false;
+
+include APP_PATH.'plugin/skiy_pay_thread/model/pay_thread.func.php';
+
+$is_pay_thread = thread_is_pay_thread($thread['tid']);
+
+//不是付费主题
+if (! $is_pay_thread) {
+    $thread_open = true;
+} else {
+    //发帖人与查阅人是同一人
+    if ($thread['uid'] == $user['uid']) $thread_open = true;
+
+    //版主 (含实习版主)
+    if (! $thread_open) {
+        $manage_arr = array(1,2,3,4,5);
+        if (in_array($user['gid'], $manage_arr)) $thread_open = true;
+    }
+
+    //检测是否已付费
+    if (! $thread_open) {
+        $is_paid = thread_paid_by_uid($user['uid'], $thread['tid']);
+        if ($is_paid) $thread_open = true;
+    }
+}
+
+//判断是否已付费
+if ($thread_open) { ?>
