@@ -97,10 +97,19 @@
                         //刷新二维码
                         // makeQrcode();
 
+                    //自定义错误
+                    } else if (code == 2) {
+                        clearInterval(getScanStatus);
+
+                        let qrcode_html = `<div class="obsolete" data-code="">${message.errmsg}，点此刷新</a>`;
+                        qrcode_obj.html(qrcode_html);
                     //未扫码    
                     } else if (code == 1) {
                     } else {
-                        console.log('error');
+                        clearInterval(getScanStatus);
+
+                        let qrcode_html = `<div class="obsolete" data-code="">未知错误，点此刷新</a>`;
+                        qrcode_obj.html(qrcode_html);
                     }
                 });
             }, 1500); //每1.5s
