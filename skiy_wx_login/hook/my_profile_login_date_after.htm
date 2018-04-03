@@ -1,10 +1,9 @@
 <?php 
 $user_agent = $_SERVER['HTTP_USER_AGENT']; 
 $is_weixin = strpos($user_agent, 'MicroMessenger');
-
 $bind_wx = db_find_one('skiy_wx_login', array('uid'=>$uid));
 ?>
-<br><span class="text-muted">绑定微信：</span>
+<br><span class="text-muted">微信状态：</span>
 <?php if (! empty($bind_wx)) {?>已绑定<?php }  else if (! empty($is_weixin)){?> 
-<a href='wx_login-bind.htm'>申请绑定</a><?php } else { ?>
+<a href='wx_login-bind-bind_user-index.htm'>申请绑定</a><?php } else { ?>
 <a href='javascript:void(0);' id="bind-weixin">申请绑定</a><?php } ?>    

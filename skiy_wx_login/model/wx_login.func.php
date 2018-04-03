@@ -139,3 +139,15 @@ function wx_login_create_user($username, $avatar_url_2, $openid) {
     return $user;
 
 }
+
+/**
+ * 判断微信客户端
+ * @return bool
+ */
+function is_weixin() {
+    $user_agent = $_SERVER['HTTP_USER_AGENT'];
+    if (strpos($user_agent, 'MicroMessenger')) {
+        return true;
+    }
+    return false;
+}

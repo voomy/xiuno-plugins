@@ -4,10 +4,18 @@
     $is_login_page = ((param(0) == 'user') && (param(1) == 'login'));
     //是否为个人资料页
     $is_my_page = (param(0) == 'my') && (param(1) === '');
-    $is_wx_login_page = ($is_my_page || $is_login_page);
+    $is_wx_login_my_page = ($is_login_page || $is_my_page);
+
+    //当前页面类型
+    $qrcode_type = 0;
+    if ($is_login_page) {
+        $qrcode_type = 1;
+    } else if ($is_my_page) {
+        $qrcode_type = 2;
+    }
 
     //如果不是微信，且为登录页或个人中心页
-	if (empty($is_weixin) && ($is_wx_login_page === true)) { 
+	if (empty($is_weixin) && ($is_wx_login_my_page === true)) { 
         $wxlogin = kv_get('skiy_wx_login');
 ?>
 <div class="qrcode-container" style="display: none;">
@@ -22,89 +30,91 @@
         let qrcode_obj = $('#qrcode');
         let site_url = '<?php echo http_url_path(); ?>';
         let getScanStatus;
+        let qrcode_type = '<?php echo $qrcode_type; ?>';
+        let [qrcode_create_uri,qrcode_scan_uri, qrcode_scan_check_uri] = ['', '', ''];
+        let qrcode_number = '';
 
-        //添加二维码
-        $("#weixin-qrcode").on("click", function(){
+        //登录
+        if (qrcode_type == 1) {
             $('.qrcode-title').html('微信扫码登录');
+            qrcode_create_uri = 'wx_login-scan-create_qrcode';
+            qrcode_scan_uri = 'wx_login-scan-scan_qrcode';
+            qrcode_scan_check_uri = 'wx_login-scan-check_qrcode';
+
+        //绑定    
+        } else if (qrcode_type == 2) {
+            $('.qrcode-title').html('微信扫码绑定');
+            qrcode_create_uri = 'wx_login-bind-create_qrcode';
+            qrcode_scan_uri = 'wx_login-bind-scan_qrcode';
+            qrcode_scan_check_uri = 'wx_login-bind-check_qrcode';
+        }
+
+        //微信登录
+        $("#login-weixin").on("click", function(){
             makeQrcode();
         });
 
+        //微信绑定
         $('#bind-weixin').on("click", function(){
-            $('.qrcode-title').html('微信扫码绑定');
-            makeBindQrcode();
+            makeQrcode();
         });
 
-        //点击遮罩层取消微信登录
+        //刷新二维码
+        $('.qrcode').on('click', '.obsolete', function(){
+            qrcode_number = $('.obsolete').data('code');
+            makeQrcode();
+        });
+
+        //点击遮罩层隐藏微信登录/绑定框,并停止计时器
         $('.shade').on('click', function(){
             $('.qrcode-container').hide();
             $('.shade').hide();
             clearInterval(getScanStatus);
         });
 
-        //刷新二维码
-        $('.qrcode').on('click', '.obsolete', function(){
-            let code = $('.obsolete').data('code');
-            makeQrcode(code);
-        });
-
         //定时器检测是否扫描
-        function scanQrcodeCheck() {
-            let qrcode_scan_url = 'wx_login-scan-get.htm';
-
+        let scanQrcodeCheck = () => {
             //定时器
             getScanStatus = setInterval(() => {
-                $.xget(qrcode_scan_url, function(code, message) {
+                $.xget(qrcode_scan_check_uri + '.htm', function(code, message) {
                     //登录成功转跳
                     if (code == 0) {
                         clearInterval(getScanStatus);
-                        window.location.href = site_url;
+
+                        if (qrcode_type == 1) {
+                            window.location.href = site_url;
+                        } else if (qrcode_type == 2) {
+                            window.location.href = site_url + 'my.htm';
+                        }
+
                     //二维码无效，停止计时(可增加刷新状态)    
                     } else if (code == -1) {
                         clearInterval(getScanStatus);
 
                         let qrcode_html = `<div class="obsolete" data-code="${message.qrcode}">二维码已失效，点此刷新</a>`;
                         qrcode_obj.html(qrcode_html);
+
                         //刷新二维码
-                        // makeQrcode(message.qrcode);
+                        // makeQrcode();
+
                     //未扫码    
                     } else if (code == 1) {
+                    } else {
+                        console.log('error');
                     }
                 });
-            }, 1500);
-        }
+            }, 1500); //每1.5s
+        };
 
-        //创建绑定微信二维码
-        function makeBindQrcode() {
-            let qrcode_create_url = 'wx_login-bind-create_qrcode.htm';
-
-            $.xget(qrcode_create_url, function(code, message) {
-                if (code == 0) {
-                    qrcode_url = site_url + 'wx_login-bind-scan_qrcode-' + message.qrcode + '.htm';
-
-                    qrcode_obj.html('').qrcode({
-                        width: 180,
-                        height: 180,
-                        text: qrcode_url
-                    });
-
-                    $('.qrcode-container').show();
-                    $('.shade').show();
-                } 
-            });
-        }
-
-        //创建登录二维码
+        //创建登录/绑定二维码
         //参数带旧二维码,刷新时会删除旧二维码在cache的数据
-        function makeQrcode(code_number = '') {
-            let qrcode_create_url = 'wx_login-scan-create.htm';
-            
-            if (code_number != '') {
-                qrcode_create_url = 'wx_login-scan-create-' + code_number + '.htm';
-            }
+        let makeQrcode = () => {
+            let qrcode_create_url = (qrcode_number == '') ? qrcode_create_uri : qrcode_create_uri + '-' + qrcode_number;
 
-            $.xget(qrcode_create_url, function(code, message) {
+            
+            $.xget(qrcode_create_url + '.htm', function(code, message) {
                 if (code == 0) {
-                    qrcode_url = site_url + 'wx_login-scan-key-' + message.qrcode + '.htm';
+                    qrcode_url = site_url + qrcode_scan_uri + '-' + message.qrcode + '.htm';
 
                     qrcode_obj.html('').qrcode({
                         width: 180,
@@ -119,7 +129,8 @@
                     scanQrcodeCheck();
                 }
             });
-        }
+        };
+
 	});
 </script>
 <?php } ?>
