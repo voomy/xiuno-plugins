@@ -160,6 +160,11 @@ if ($action == 'index') {
                     $code = 1;
                     $message['errmsg'] = '未扫码';
                     $message['time'] = $time;
+                } else if ($data['status'] == 2) {
+                    if (isset($data['errmsg'])) {
+                        $code = 2;
+                        $message['errmsg'] = $data['errmsg'];
+                    }
                 } else if (($data['status'] == 1) && !empty($data['uid'])) {
                     $code = 0;
                     $message['errmsg'] = '已扫码绑定微信';
@@ -180,12 +185,7 @@ if ($action == 'index') {
                     //删除此次二维码
                     unset($_SESSION['qrcode_bind']);
                     cache_delete($cache_key);
-                } else if ($data['status'] == 2) {
-                    if (isset($data['errmsg'])) {
-                        $code = 2;
-                        $message['errmsg'] = $data['errmsg'];
-                    }
-                }  
+                } 
             }      
 
             message($code, $message);
@@ -205,7 +205,7 @@ if ($action == 'index') {
             message(-1, jump('二维码已失效', $home_url, 2));
         }
 
-        if ($data['status'] != 0) {
+        if ($data['status'] == 2) {
             message(-1, jump('二维码已使用', $home_url, 2));
         }
 
@@ -237,7 +237,6 @@ if ($action == 'index') {
     } else if ($action_2 == 'bind_user') {
         $action_3 = param(3);
 
-
         //未登录则不可操作
         if (empty($user)) {
             http_location($home_url);
@@ -249,38 +248,41 @@ if ($action == 'index') {
             'errmsg' => '未知错误',
         );
 
+        $binding_key = '';
         if (isset($_SESSION['qrcode_bind'])) {
             $binding_key = $qrcode_bind_pre . $_SESSION['qrcode_bind'];
         }
 
-        $uid = $user['uid'];
-        $uid_binded = wx_had_bind_user_by_uid($uid);
-        if (!empty($uid_binded)) {
-            //若扫码绑定失败则退出微信内置已登录帐号
-            if ($action_3 == 'binding') {
+        //扫码绑定功能 - (PC端扫码绑定)
+        if ($action_3 == 'scan') {
+            $uid = $user['uid'];
+            $uid_binded = wx_had_bind_user_by_uid($uid);
+            if (!empty($uid_binded)) {
+                $binding_data['errmsg'] = '该帐号已经被他人绑定';
+                cache_set($binding_key, $binding_data, $expiry_time);
+
                 $uid = 0;
                 $_SESSION['uid'] = $uid;
                 user_token_clear(); 
-
-                $binding_data['errmsg'] = '该帐号已经被他人绑定';
-                cache_set($binding_key, $binding_data, $expiry_time);
+                message(1, jump('该帐号已经被他人绑定', $home_url, 3));
             }
-            message(1, jump('该帐号已经被他人绑定', $home_url, 3));
-        }
 
-        //扫码绑定功能 - (PC端扫码绑定)
-        if ($action_3 == 'scan') {
-            $link = redirect('bind', 'bind_user-binding');
+            $link = redirect('bind', 'bind_user-scanbind');
             http_location($link);
 
         //绑定授权 - 若是由(微信内绑定)    
         } else if ($action_3 == 'auth') {
+            $uid = $user['uid'];
+            $uid_binded = wx_had_bind_user_by_uid($uid);
+            if (!empty($uid_binded)) {
+                message(1, jump('该帐号已经被他人绑定', $home_url, 3));
+            }
+
             $link = redirect('bind', 'bind_user-index');
             http_location($link);
-
+        
         //已授权 - 绑定微信 (微信内)   
         } else if ($action_3 == 'index') {
-
             $wx_config = [
                 'appid' => $wxlogin['appid'],
                 'appsecret' => $wxlogin['appsecret'],
@@ -312,7 +314,7 @@ if ($action == 'index') {
             message(0, jump('该帐号绑定微信成功', $redirect_url, 2));
 
         //扫码绑定方式    
-        } else if ($action_3 == 'binding') {
+        } else if ($action_3 == 'scanbind') {
             $wx_config = [
                 'appid' => $wxlogin['appid'],
                 'appsecret' => $wxlogin['appsecret'],
@@ -322,33 +324,38 @@ if ($action == 'index') {
             if (empty($wx_token)) {
                 $binding_data['errmsg'] = '微信授权错误:' . $wechat->errMsg;
                 cache_set($binding_key, $binding_data, $expiry_time);
-            }
 
+                $uid = 0;
+                $_SESSION['uid'] = $uid;
+                user_token_clear(); 
+                message(-1, jump($binding_data['errmsg'], $home_url, 3));
+            }
             $access_token = $wx_token['access_token'];
             $openid = $wx_token['openid'];
-
+            
             //判断微信是否已绑定其它帐号
             $wx_binded = wx_had_bind_user_by_openid($openid);
             if (!empty($wx_binded)) {
                 $binding_data['errmsg'] = '该微信已经绑定他人帐号';
                 cache_set($binding_key, $binding_data, $expiry_time);
-            }
 
-            $uid = $user['uid'];
-
-            //此微信与此帐号是否已经绑定
-            $bind = wx_bind_uid($uid, $openid);
-            if (empty($bind)) {
-                $binding_data['errmsg'] = '该帐号与微信绑定失败';
-                cache_set($binding_key, $binding_data, $expiry_time);            
-            }
-
-            $data = cache_get($binding_key);
-            if (isset($data['status']) && ($data['status'] != 0)) {
                 $uid = 0;
                 $_SESSION['uid'] = $uid;
                 user_token_clear(); 
-                message(1, jump($data['errmsg'], $home_url, 3));
+                message(-1, jump($binding_data['errmsg'], $home_url, 3));
+            }
+
+            $uid = $user['uid'];
+            //此微信与此帐号是否已经成功绑定
+            $bind = wx_bind_uid($uid, $openid);
+            if (empty($bind)) {
+                $binding_data['errmsg'] = '该帐号与微信绑定失败';
+                cache_set($binding_key, $binding_data, $expiry_time);    
+                
+                $uid = 0;
+                $_SESSION['uid'] = $uid;
+                user_token_clear(); 
+                message(-1, jump($binding_data['errmsg'], $home_url, 3));
             }
 
             //绑定成功
@@ -359,8 +366,7 @@ if ($action == 'index') {
             cache_set($binding_key, $data, $expiry_time);
             unset($_SESSION['qrcode_bind']);
 
-            $redirect_url = $home_url . 'my.htm';
-            message(0, jump('该帐号绑定微信成功', $redirect_url, 2));
+            message(0, jump('该帐号绑定微信成功', $home_url, 2));
         }
 
     }
