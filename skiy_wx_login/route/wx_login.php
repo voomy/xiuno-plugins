@@ -544,6 +544,10 @@ if ($action == 'index') {
     }
 //解除绑定
 } else if ($action == 'unbind') {
+    if (! is_weixin()) {
+        message(1, '请在微信内操作');
+    }
+
     //创建解除绑定,判断权限
     if ($action_2 == 'create') {
         $wx_bind = wx_had_bind_user_by_uid($user['uid']);
