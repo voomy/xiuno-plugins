@@ -542,7 +542,63 @@ if ($action == 'index') {
 
         message(0, jump('登陆成功', $home_url, 2));
     }
+//解除绑定
+} else if ($action == 'unbind') {
+    //创建解除绑定,判断权限
+    if ($action_2 == 'create') {
+        $wx_bind = wx_had_bind_user_by_uid($user['uid']);
+        if (! $wx_bind) {
+            message(1, '该帐号未绑定微信');
+        }
+        
+        $wx_config = [
+            'appid' => $wxlogin['appid'],
+            'appsecret' => $wxlogin['appsecret'],
+        ];
+        $wechat = new Wechat($wx_config);
+        $wx_token = $wechat->getOauthAccessToken();
+        if (empty($wx_token)) {
+            message(1, '微信授权错误:' . $wechat->errMsg);
+        }
+    
+        $access_token = $wx_token['access_token'];
+        $openid = $wx_token['openid'];
 
+        //当前微信号非绑定的微信号
+        if ($openid != $wx_bind['openid']) {
+            message(1, '请使用该用户绑定的微信号进行操作');
+        }
+
+        $email_arr = explode('@', $user['email']);
+        //判断是不是使用微信注册的
+        if ($email_arr[1] == 'wx.com') {
+            $_SESSION['unbind_uid'] = $uid;
+            message(3, '请更新 email 帐号');
+        }
+ 
+        //执行 SQL 语句删除绑定
+        wx_unbind_user_by_uid($uid);
+
+        //用微信创建的帐号,将需要绑定新邮箱
+        message(0, '解除微信绑定成功');
+    } else if ($action_2 == 'update') {
+        if (! isset($_SESSION['unbind_uid'])) {
+            message(1, '操作失败');
+        }
+
+        $upEmail = param('email');
+        $emailExist = user_read_by_email($upEmail);
+        if (! empty($emailExist)) {
+            message(1, '此邮箱已被他人绑定');
+        }
+        
+        user_update($uid, array('email' => $upEmail));
+        //执行 SQL 语句删除绑定
+        wx_unbind_user_by_uid($uid);
+
+        //用微信创建的帐号,将需要绑定新邮箱
+        message(0, '解除微信绑定成功');
+    };
 }
 
 //未知页面直接转跳至首页
