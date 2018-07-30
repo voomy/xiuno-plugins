@@ -48,6 +48,14 @@ function wx_had_bind_user_by_uid($uid) {
 }
 
 /**
+ * 根据 UID 解除微信绑定
+ */
+function wx_unbind_user_by_uid($uid) {
+    db_delete('skiy_wx_login', array('uid' => $uid));
+    return TRUE;
+}
+
+/**
  * 绑定失败
  */
 function wx_bind_uid($uid, $openid) {

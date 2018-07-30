@@ -25,6 +25,10 @@
 <div class="shade" style="display: none;"></div>
 <link rel="stylesheet" href="/plugin/skiy_wx_login/static/css/common.css">
 <script type="text/javascript" src="/plugin/skiy_wx_login/static/js/jquery.qrcode.min.js"></script>
+<?php if ($is_my_page) {?>
+<link rel="stylesheet" href="/plugin/skiy_wx_login/static/css/sweetalert2.min.css">
+<script type="text/javascript" src="/plugin/skiy_wx_login/static/js/sweetalert2.min.js"></script>    
+<?php } ?>
 <script>
     $(function (){
         let qrcode_obj = $('#qrcode');
@@ -70,6 +74,11 @@
             $('.qrcode-container').hide();
             $('.shade').hide();
             clearInterval(getScanStatus);
+        });
+
+        //解除微信绑定
+        $('#unbind-weixin').on("click", function(){
+            unbindWechat();
         });
 
         //定时器检测是否扫描
@@ -140,6 +149,91 @@
             });
         };
 
+        //解除微信绑定
+        let unbindWechat = () => {
+            let unbind_url = 'wx_login-unbind-create';
+            $.xget(unbind_url + '.htm', function(code, message) {
+                console.log(code, message);
+                //登录成功刷新当前页面
+                if (code == 0) {
+                    swal({
+                        type: 'success',
+                        text: '更新成功',
+                        timer: 3000,
+                    }).then((result) => {
+                        location.reload();
+                    });
+                //更新 email    
+                } else if (code == 1) {
+                    swal({
+                        type: 'error',
+                        text: message,
+                    });
+                } else if (code == 3) {
+                    unbindWxSubmit();
+                } else {
+                    swal({
+                        type: 'error',
+                        text: '未知错误',
+                    });
+                }
+            });
+        }
+
+        let unbindWxSubmit = () => {
+            swal({
+            title: '更新邮箱并解绑微信',
+            html:
+                '<input id="swal-input1" class="swal2-input" placeholder="请输入邮箱">' +
+                '<input id="swal-input2" class="swal2-input" placeholder="再次确认邮箱">',
+            showCancelButton: true,
+            confirmButtonText: '提交',
+            cancelButtonText: '取消',
+            showLoaderOnConfirm: true,
+            preConfirm: () => {
+                let e1 = document.getElementById('swal-input1').value;
+                let e2 = document.getElementById('swal-input2').value;
+                let reg = /^\w+((-\w+)|(\.\w+))*\@[A-Za-z0-9]+((\.|-)[A-Za-z0-9]+)*\.[A-Za-z0-9]+$/;
+                
+                if (! reg.test(e1)) {
+                    swal.showValidationError(
+                        '邮箱格式不正确'
+                    )
+                } else if (e1 != e2) {
+                    swal.showValidationError(
+                        '校验邮箱不匹配'
+                    )
+                }
+                return e1;
+            },
+            allowOutsideClick: () => !swal.isLoading()
+            }).then((result) => {
+                if (result.value) {
+                    let update_url = 'wx_login-unbind-update';
+                    $.xpost(update_url + '.htm', "email=" + result.value, function(code, message) {
+                        if (code == 0) {
+                            swal({
+                                type: 'success',
+                                text: '更新成功',
+                                timer: 3000,
+                            }).then((result) => {
+                                location.reload();
+                            });
+                        } else if (code == 1) {
+                            swal({
+                                type: 'error',
+                                text: message,
+                            });
+                        } else {
+                            swal({
+                                type: 'error',
+                                text: '未知错误',
+                            });
+                        }
+                    });
+                };
+            });
+        };
 	});
 </script>
 <?php } ?>
